@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            padding: 0
+        }
+
+        #myDiv {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('./pattern.png');
+            background-repeat: repeat;
+        }
+
+        #snowflakeDiv {
+            position: fixed;
+            top: 0;
+            left: 0
+        }
+
+        .snowflake {
+            width: 150px;
+            height: 150px;
+            position: absolute;
+            content: url('./icon.png');
+            left: 0;
+            top: 0;
+            z-index: 10
+        }
+
+        #gameinfo {
+            font-size: large;
+            color: white;
+        }
+
+        #gameover {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: auto;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 200px;
+            height: 50px;
+            position: absolute;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div id="myDiv">
+        <p id="gameover" style="display:none;">
+            <span style="color:rgb(239, 163, 163);font-weight:bold;font-size: 36px;">
+                Game Over
+            </span>
+            <br />
+            <button onclick="javscript:location.reload();">
+                重新开始
+            </button>
+        </p>
+    </div>
+    <div id="gameinfo" style="transform: translateZ(360px);">
+        <p>
+            最高连击：<span id='maxDoubleHit'>0</span>
+        </p>
+        <p>
+            本次游戏：<span id='currentDoubleHit'>0</span>
+        </p>
+        <p>
+            游戏时间：<span id='currentTime'>0</span>
+        </p>
+    </div>
+
+    <div id="snowflakeDiv">
+    </div>
+
+    <script>
+        var maxDoubleHit = localStorage.getItem('eliminateCount') || 0
+        var currentDoubleHit = 0
+        var bnElements = []; //存放所有雪花
+        var random = Math.random; //随机函数
+        var wW = window.innerWidth; //窗口宽度
+        var wH = window.innerHeight; //窗口高度
+        var flakeW = 160; //雪花的宽度
+        var flakeH = 300; //雪花的宽度
+        var minSpeed = 3; //最小速度，每次向上移动至少3px
+        var speedNum = 20; //速度的定量
+        var defBnNumber = 8; //初始化雪花
+        var gameTime = 10 * 1000;
+        var currentTime = 0;
+        var moveTimer;
+        var isEnd = false;
+        var jindex = 1;
+        var snowflakeDiv = document.getElementById('snowflakeDiv');
+
+        //初始化			
+        init(defBnNumber);
+        //移动
+        move();
+        //绑定单击事件
+        bindClick();
+
+        //游戏信息
+        document.getElementById('maxDoubleHit').innerText = maxDoubleHit
+
+        function record() {
+            if (isEnd) {
+                clearTimeout(moveTimer);
+                bnElements = [];
+                document.getElementById('gameover').style.display = 'flex';
+                document.getElementById('gameinfo').style =
+                    'transform: translateZ(360px);position: fixed;top:0;left:0;z-index:999';
+            } else {
+                init(1);
+            }
+        }
+
+        function collect() {
+            document.getElementById('currentDoubleHit').innerText = ++currentDoubleHit;
+            if (currentDoubleHit > maxDoubleHit) {
+                document.getElementById('maxDoubleHit').innerText = currentDoubleHit;
+                localStorage.setItem('eliminateCount', currentDoubleHit)
+            }
+        }
+
+        //初始化雪花
+        function init(num) {
+            //创建一个虚拟文档节点
+            var docFragment = document.createDocumentFragment();
+            for (var i = 0; i < num; i++) {
+                var bnElement = document.createElement('div');
+                bnElement.className = 'snowflake';
+                //速度随机，限定最小值
+                var speed = Math.max(minSpeed, ~~(random() * speedNum));
+                bnElement.setAttribute('speed', speed); //~~取整 移动速度
+                bnElement.setAttribute('id', 'flake-' + jindex++);
+                //分散排列
+                var x = (~~(random() * wW)) - flakeW;
+                x = Math.max(0, x);
+                bnElement.style.left = x + 'px';
+                bnElement.style.top = 0 + 'px'; //露一点出来			
+
+                //1.先将创建的雪花放入创建的虚拟文档节点
+                docFragment.appendChild(bnElement);
+                bnElements.push(bnElement);
+            }
+            //2.将虚拟文档节点添加到body中
+            snowflakeDiv.appendChild(docFragment);
+        }
+
+        function move() {
+            var bl = bnElements.length
+            for (var i = 0; i < bl; i++) {
+                var currentElement = bnElements[i]
+                if (currentElement == null) {
+                    continue;
+                }
+                var offsetTop = currentElement.offsetTop;
+                console.log(snowflakeDiv.clientHeight);
+                if (isEnd == false && offsetTop < wH) { //窗口中
+                    var speed = currentElement.getAttribute('speed');
+                    currentElement.style.top = offsetTop + (speed * 0.5) + 'px'
+                } else {
+                    //移除dom节点
+                    snowflakeDiv.removeChild(currentElement);
+                    //移除数组中
+                    bnElements.splice(i, 1);
+                    //init(1);
+                    //isEnd = true;
+                    record();
+                }
+                if (isEnd) {
+                    boom.call(currentElement, function () {
+                    });
+                }
+            }
+            moveTimer = setTimeout(move, 1000 / 30);
+            currentTime += 1000 / 30;
+            document.getElementById('currentTime').innerText = Math.min(Math.floor(gameTime / 1000), Math.floor(currentTime / 1000));
+            if (currentTime >= gameTime) {
+                isEnd = true;
+            }
+        }
+
+        function bindClick() {
+
+            snowflakeDiv.addEventListener('click', clickFunc, false);
+
+            function clickFunc(e) {
+                if (!isEnd && e.target.className == 'snowflake') {
+                    boom.call(e.target, function () {
+                        record();
+                        collect();
+                    });
+                }
+            }
+        }
+
+        function boom(callback) {
+            //var that=this; //替换了上下文，但是没有使用this的意义.
+            var speed = this.getAttribute('speed');
+            this.timer = setInterval(function () {
+                this.style.opacity = 0.1 * (speed--)
+                if (speed < 1) {
+                    if (this.parentNode) {
+                        this.parentNode.removeChild(this);
+                        bnElements.splice(bnElements.lastIndexOf(this), 1);
+                        callback && callback();
+                    }
+                    clearInterval(this.timer);
+                }
+            }.bind(this), 30);
+        }
+    </script>
+
+</body>
+
+</html>
